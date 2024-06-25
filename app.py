@@ -21,8 +21,10 @@ def create_task():
 
     tasks.append(task)
 
-    print(tasks)
-    return jsonify({"message": "Nova tarefa criada com sucesso!"}), 201
+    return jsonify({
+        "message": "Nova tarefa criada com sucesso!",
+        "id": task.id
+    }), 201
 
 
 @app.route("/tasks", methods=["GET"])
@@ -68,10 +70,7 @@ def update_task(id):
     task.description = data.get("description", task.description)
     task.completed = data.get("completed", task.completed)
 
-    return jsonify({
-        "message": "Tarefa atualizada com sucesso",
-        "data": task.to_dict()
-    })
+    return jsonify(task.to_dict())
 
 
 @app.route("/tasks/<int:id>", methods=["DELETE"])
