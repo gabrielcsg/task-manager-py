@@ -1,79 +1,94 @@
-def add_task(task_list, task_name):
-    task = {
-        "name": task_name,
-        "completed": False
-    }
-    task_list.append(task)
-    print(f"A tarefa {task_name} foi adicionada com sucesso")
-    return
+from flask import Flask, request, jsonify
+from models.task import Task
 
-
-def list_tasks(task_list):
-    print("\nLista de tarefas:")
-    for index, task in enumerate(task_list, start=1):
-        status = "✓" if task["completed"] else " "
-        task_name = task["name"]
-        print(f"{index}. [{status}] {task_name}")
-    return
-
-
-def update_task_name(task_list, task_index, task_name):
-    fixed_index = int(task_index)-1
-    if fixed_index >= 0 and fixed_index < len(task_list):
-        task_list[fixed_index]['name'] = task_name
-        print(f"Tarefa {task_index} atualizada com sucesso para {task_name}")
-    else:
-        print("Indice de tarefa inválido")
-    return
-
-
-def complete_task(task_list, task_index):
-    fixed_index = int(task_index)-1
-    if fixed_index >= 0 and fixed_index < len(task_list):
-        task_list[fixed_index]['completed'] = True
-        print(f"Tarefa {task_index} completada")
-    else:
-        print("Indice de tarefa inválido")
-    return
-
-
-def remove_completed_tasks(task_list):
-    for task in task_list:
-        if task["completed"]:
-            task_list.remove(task)
-    print("Tarefas completadas removidas com sucesso")
-    return
+app = Flask(__name__)
 
 
 tasks = []
-while True:
-    print("\nMenu do gerenciador de lista de tarefas")
-    print("1. Adicionar tarefa")
-    print("2. Ver tarefas")
-    print("3. Atualizar tarefa")
-    print("4. Completar tarefa")
-    print("5. Deletar tarefas completadas")
-    print("6. Sair")
+task_id_control = 1
 
-    option = input("Digite sua escolha: ")
 
-    if option == "1":
-        task_name = input('Digite o nome da tarefa que deseja adicionar: ')
-        add_task(tasks, task_name)
-    elif option == "2":
-        list_tasks(tasks)
-    elif option == "3":
-        list_tasks(tasks)
-        selected_index = input(
-            "Digite o número da tarefa que deseja atualizar o nome: ")
-        name = input("Digite o novo nome da tarefa: ")
-        update_task_name(tasks, selected_index, name)
-    elif option == "4":
-        list_tasks(tasks)
-        selected_index = input(
-            "Digite o número da tarefa que deseja finalizar: ")
-        complete_task(tasks, selected_index)
-    elif option == "6":
-        break
+@app.route("/tasks", methods=["POST"])
+def create_task():
+    global task_id_control
+    data = request.get_json()
+    task = Task(
+        id=task_id_control,
+        title=data.get("title"),
+        description=data.get("description", "")
+    )
+    task_id_control += 1
 
-print("Programa finalizado")
+    tasks.append(task)
+
+    print(tasks)
+    return jsonify({"message": "Nova tarefa criada com sucesso!"}), 201
+
+
+@app.route("/tasks", methods=["GET"])
+def get_tasks():
+    task_list = [task.to_dict() for task in tasks]
+
+    output = {
+        "tasks": task_list,
+        "total_tasks": len(task_list)
+    }
+
+    return jsonify(output)
+
+
+@app.route("/tasks/<int:id>", methods=["GET"])
+def get_task_details(id):
+    task = None
+    for t in tasks:
+        if t.id == id:
+            return jsonify(t.to_dict())
+
+    return jsonify({"message": "Não foi possível encontrar a atividade"}), 404
+
+
+@app.route("/tasks/<int:id>", methods=["PUT"])
+def update_task(id):
+    task = None
+    for t in tasks:
+        if t.id == id:
+            task = t
+            break
+
+    if not task:
+        return jsonify({"message": "Não foi possível encontrar a atividade"}), 404
+
+    data = request.get_json()
+
+    request_fields = ["title", "description", "completed"]
+    if not any(data.get(field) for field in request_fields):
+        return jsonify({"message": "Informe pelo menos um campo para ser atualizado"}), 400
+
+    task.title = data.get("title", task.title)
+    task.description = data.get("description", task.description)
+    task.completed = data.get("completed", task.completed)
+
+    return jsonify({
+        "message": "Tarefa atualizada com sucesso",
+        "data": task.to_dict()
+    })
+
+
+@app.route("/tasks/<int:id>", methods=["DELETE"])
+def delete_task(id):
+    task = None
+    for t in tasks:
+        if t.id == id:
+            task = t
+            break
+
+    if not task:
+        return jsonify({"message": "Não foi possível encontrar a atividade"}), 404
+
+    tasks.remove(task)
+
+    return jsonify({"message": "Tarefa removida com sucesso"})
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
